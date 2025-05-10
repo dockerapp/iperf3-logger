@@ -1,0 +1,52 @@
+name: Docker build and publish workflow
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  FLUENTD_VERSION: 1.18.0-1.0
+  IPERF3_VERSION: 3.18
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set env vars
+        id: build_vars
+        run: |
+          echo "COMMIT_NUMBER=$(git rev-list --count HEAD)" >> $GITHUB_OUTPUT
+          echo "FLUENTD_VERSION_SHORT=$(echo ${FLUENTD_VERSION} | cut -d'-' -f1)" >> $GITHUB_OUTPUT
+          echo "IPERF3_VERSION_SHORT=$(echo ${IPERF3_VERSION} | cut -d'-' -f1)" >> $GITHUB_OUTPUT
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+        with:
+          context: .
+          build-args: |
+            FLUENTD_VERSION=${{ env.FLUENTD_VERSION }}
+            IPERF3_VERSION=${{ env.IPERF3_VERSION }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}:fluentd${{ steps.build_vars.outputs.FLUENTD_VERSION_SHORT }}-iperf${{ steps.build_vars.outputs.IPERF3_VERSION_SHORT }}
+            ${{ env.REGISTRY }}/${{ github.repository }}:fluentd${{ steps.build_vars.outputs.FLUENTD_VERSION_SHORT }}-iperf${{ steps.build_vars.outputs.IPERF3_VERSION_SHORT }}-v${{steps.build_vars.outputs.COMMIT_NUMBER}}
