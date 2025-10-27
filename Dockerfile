@@ -12,4 +12,10 @@ COPY    fluentd.conf /etc/fluentd.conf
 
 COPY    --from=iperf3 /iperf3 /usr/bin/iperf3
 
+USER    root
+
+RUN     gem install fluent-plugin-rewrite-tag-filter
+
+USER    fluent
+
 ENTRYPOINT [ "/usr/bin/fluentd", "-c", "/etc/fluentd.conf", "-vv" ]
